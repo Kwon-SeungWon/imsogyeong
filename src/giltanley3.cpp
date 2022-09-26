@@ -29,26 +29,26 @@ int main(void) {
 	angle2 = (y3 - y2) / (x3 - x2);
 	angle3 = (y3 - y1) / (x3 - x1);
 
-	if (angle1 == angle2) {
+	if ((((angle1 - angle2) < 0.01) && ((angle1 - angle2) > -0.01)) || ((angle2 > 1000) && (angle1 > 1000))) {
 		cout << "\n" << "직선 경로" << "\n\n";
 		cout << "차량의 좌표 : ";
 		cin >> x >> y;
 		cout << "차량의 방향 : ";
 		cin >> real_angle;
 
-		if (angle3 == 0) {					//////////////////////////////////////////////가로 직선
+		if ((angle3 > -0.01) && (angle3 < 0.01)) {					//////////////////////////////////////////////가로 직선
 			tx = x2;
 			ty = y2;
 			distance = y2 - y;
 			theory_angle = 0;
 		}
-		else if (angle3 == 1) {				//////////////////////////////////////////////세로 직선
+		else if ((angle3 > 0.9) && (angle3 < 1.1)) {				//////////////////////////////////////////////세로 직선
 			tx = (x + y - (y2 - x2)) / 2.0;
 			ty = tx + (y2 - x2);
 			distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 			theory_angle = 1;
 		}
-		else if (angle3 == -1) {			//////////////////////////////////////////////대각 직선(+)
+		else if ((angle3 < -0.9) && (angle3 > -1.1)) {			//////////////////////////////////////////////대각 직선(+)
 			tx = (x - y + (y2 + x2)) / 2.0;
 			ty = -tx + (y2 + x2);
 			distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
@@ -63,19 +63,15 @@ int main(void) {
 		else {
 			cout << "일치하는 경로가 없습니다." << "\n";
 		}
-        
-        err_angle = atan(theory_angle) - atan(real_angle);
-        err_dist = distance;
-		
-        cout << "\n" << "이론상의 조향각 : " << atan(theory_angle) << " " << "실제 조향각 : " << atan(real_angle) << "\n";
+		cout << "\n" << "이론상의 조향각 : " << atan(theory_angle) << " " << "실제 조향각 : " << atan(real_angle) << "\n";
 		cout << "조향각 오차 : " << atan(theory_angle) - atan(real_angle) << "\n";			//라디안 단위임 '도'단위로 바꿀려면 (* 180 / pi)
 		cout << "접점의 좌표 : " << tx << " " << ty << "\n";
 		cout << "횡방향 오차 : " << distance << "\n";
 	}
 
-	else if (angle3 == 1 || angle3 == -1) {
+	else if (((angle3 > 0.9) && (angle3 < 1.1)) || ((angle3 < -0.9) && (angle3 > -1.1))) {
 		cout << "중점 : " << m1 << " " << m2 << "\n";
-		cout << "곡선 경로" << "\n\n";
+		cout << "곡선 경로1" << "\n\n";
 
 		cout << "차량의 좌표 : ";
 		cin >> x >> y;
@@ -84,49 +80,49 @@ int main(void) {
 
 		theory_angle = -1 / ((y - m2) / (x - m1));
 
-		if (angle3 == 1 && (y3 > y2))//////////////////////////////////////////////1번(+ -)
+		if (((angle3 > 0.9) && (angle3 < 1.1)) && (y3 > y2))//////////////////////////////////////////////1번(+ -)
 		{
 			tx = sqrt(pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 			ty = -sqrt(pow(0.5, 2) - (pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 			distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 		}
-		else if (angle3 == 1 && (x3 > x2))/////////////////////////////////////////2번(- +)
+		else if (((angle3 > 0.9) && (angle3 < 1.1)) && (x3 > x2))/////////////////////////////////////////2번(- +)
 		{
 			tx = -sqrt(pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 			ty = sqrt(pow(0.5, 2) - (pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 			distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 		}
-		else if (angle3 == -1 && (x3 < x2))/////////////////////////////////////////3번(+ +)
+		else if (((angle3 < -0.9) && (angle3 > -1.1)) && (x3 < x2))/////////////////////////////////////////3번(+ +)
 		{
 			tx = sqrt(pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 			ty = sqrt(pow(0.5, 2) - (pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 			distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 		}
-		else if (angle3 == -1 && (y3 > y2))/////////////////////////////////////////4번(- -)
+		else if (((angle3 < -0.9) && (angle3 > -1.1)) && (y3 > y2))/////////////////////////////////////////4번(- -)
 		{
 			tx = -sqrt(pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 			ty = -sqrt(pow(0.5, 2) - (pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 			distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 		}
-		else if (angle3 == 1 && (y3 < y2))/////////////////////////////////////////5번(- +)
+		else if (((angle3 > 0.9) && (angle3 < 1.1)) && (y3 < y2))/////////////////////////////////////////5번(- +)
 		{
 			tx = -sqrt(pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 			ty = sqrt(pow(0.5, 2) - (pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 			distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 		}
-		else if (angle3 == 1 && (x3 < x2))/////////////////////////////////////////6번(+ -)
+		else if (((angle3 > 0.9) && (angle3 < 1.1)) && (x3 < x2))/////////////////////////////////////////6번(+ -)
 		{
 			tx = sqrt(pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 			ty = -sqrt(pow(0.5, 2) - (pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 			distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 		}
-		else if (angle3 == -1 && (x3 > x2))/////////////////////////////////////////7번(- -)
+		else if (((angle3 < -0.9) && (angle3 > -1.1)) && (x3 > x2))/////////////////////////////////////////7번(- -)
 		{
 			tx = -sqrt(pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 			ty = -sqrt(pow(0.5, 2) - (pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 			distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 		}
-		else if (angle3 == -1 && (y3 < y2))/////////////////////////////////////////8번(+ +)
+		else if (((angle3 < -0.9) && (angle3 > -1.1)) && (y3 < y2))/////////////////////////////////////////8번(+ +)
 		{
 			tx = sqrt(pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 			ty = sqrt(pow(0.5, 2) - (pow(0.5, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
@@ -137,10 +133,7 @@ int main(void) {
 			cout << "일치하는 경로가 없습니다." << "\n";
 		}
 
-        err_angle = atan(theory_angle) - atan(real_angle);
-        err_dist = distance;
-		
-        cout << "\n" << "이론상의 조향각 : " << atan(theory_angle) << " " << "실제 조향각 : " << atan(real_angle) << "\n";
+		cout << "\n" << "이론상의 조향각 : " << atan(theory_angle) << " " << "실제 조향각 : " << atan(real_angle) << "\n";
 		cout << "조향각 오차 : " << atan(theory_angle) - atan(real_angle) << "\n";			//라디안 단위임 '도'단위로 바꿀려면 (* 180 / pi)
 		cout << "접점의 좌표 : " << tx << " " << ty << "\n";
 		cout << "횡방향 오차 : " << distance << "\n";
@@ -164,7 +157,7 @@ int main(void) {
 		m2 = y3;
 	}
 	cout << "중점 : " << m1 << " " << m2 << "\n";
-	cout << "곡선 경로" << "\n\n";
+	cout << "곡선 경로2" << "\n\n";
 
 	cout << "차량의 좌표 : ";
 	cin >> x >> y;
@@ -173,49 +166,49 @@ int main(void) {
 
 	theory_angle = -1 / ((y - m2) / (x - m1));
 
-	if (angle3 == 0.5 && (((y3 > y2) && (x1 < x2)) || ((x2 > x3) && (y1 > y2))))//////////////////////////////////////////////1번(+ -)
+	if (((angle3 > 0.4) && (angle3 < 0.6)) && (((y3 > y2) && (x1 < x2)) || ((x2 > x3) && (y1 > y2))))//////////////////////////////////////////////1번(+ -)
 	{
 		tx = sqrt(pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 		ty = -sqrt(pow(3, 2) - (pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 		distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 	}
-	else if (angle3 == 2 && (((x3 > x2) && (y1 < y2)) || ((y2 > y3) && (x1 > x2))))/////////////////////////////////////////2번(- +)
+	else if (((angle3 > 1.9) && (angle3 < 2.1)) && (((x3 > x2) && (y1 < y2)) || ((y2 > y3) && (x1 > x2))))/////////////////////////////////////////2번(- +)
 	{
 		tx = -sqrt(pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 		ty = sqrt(pow(3, 2) - (pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 		distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 	}
-	else if (angle3 == -2 && (((x3 < x2) && (y1 < y2)) || ((y2 > y3) && (x1 < x2))))/////////////////////////////////////////3번(+ +)
+	else if (((angle3 < -1.9) && (angle3 > -2.1)) && (((x3 < x2) && (y1 < y2)) || ((y2 > y3) && (x1 < x2))))/////////////////////////////////////////3번(+ +)
 	{
 		tx = sqrt(pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 		ty = sqrt(pow(3, 2) - (pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 		distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 	}
-	else if (angle3 == -0.5 && (((y3 > y2) && (x1 > x2)) || ((x2 < x3) && (y1 > y2))))/////////////////////////////////////////4번(- -)
+	else if (((angle3 < -0.4) && (angle3 > -0.6)) && (((y3 > y2) && (x1 > x2)) || ((x2 < x3) && (y1 > y2))))/////////////////////////////////////////4번(- -)
 	{
 		tx = -sqrt(pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 		ty = -sqrt(pow(3, 2) - (pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 		distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 	}
-	else if (angle3 == 0.5 && (((y3 < y2) && (x1 > x2)) || ((x2 < x3) && (y1 < y2))))/////////////////////////////////////////5번(- +)
+	else if (((angle3 > 0.4) && (angle3 < 0.6)) && (((y3 < y2) && (x1 > x2)) || ((x2 < x3) && (y1 < y2))))/////////////////////////////////////////5번(- +)
 	{
 		tx = -sqrt(pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 		ty = sqrt(pow(3, 2) - (pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 		distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 	}
-	else if (angle3 == 2 && (((x3 < x2) && (y1 > y2)) || ((y2 < y3) && (x1 < x2))))/////////////////////////////////////////6번(+ -)
+	else if (((angle3 > 1.9) && (angle3 < 2.1)) && (((x3 < x2) && (y1 > y2)) || ((y2 < y3) && (x1 < x2))))/////////////////////////////////////////6번(+ -)
 	{
 		tx = sqrt(pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 		ty = -sqrt(pow(3, 2) - (pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 		distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 	}
-	else if (angle3 == -2 && (((x3 > x2) && (y1 > y2)) || ((y2 < y3) && (x1 > x2))))/////////////////////////////////////////7번(- -)
+	else if (((angle3 < -1.9) && (angle3 > -2.1)) && (((x3 > x2) && (y1 > y2)) || ((y2 < y3) && (x1 > x2))))/////////////////////////////////////////7번(- -)
 	{
 		tx = -sqrt(pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 		ty = -sqrt(pow(3, 2) - (pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
 		distance = sqrt(pow(x - tx, 2) + pow(y - ty, 2));
 	}
-	else if (angle3 == -0.5 && (((y3 < y2) && (x1 < x2)) || ((x2 > x3) && (y1 < y2))))/////////////////////////////////////////8번(+ +)
+	else if (((angle3 < -0.4) && (angle3 > -0.6)) && (((y3 < y2) && (x1 < x2)) || ((x2 > x3) && (y1 < y2))))/////////////////////////////////////////8번(+ +)
 	{
 		tx = sqrt(pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1)) + m1;
 		ty = sqrt(pow(3, 2) - (pow(3, 2) / (pow((y - m2) / (x - m1), 2) + 1))) + m2;
@@ -225,15 +218,12 @@ int main(void) {
 	{
 		cout << "일치하는 경로가 없습니다." << "\n";
 	}
-    
-    err_angle = atan(theory_angle) - atan(real_angle);
-    err_dist = distance;
-	
-    cout << "\n" << "이론상의 조향각 : " << atan(theory_angle) << " " << "실제 조향각 : " << atan(real_angle) << "\n";
+
+	cout << "\n" << "이론상의 조향각 : " << atan(theory_angle) << " " << "실제 조향각 : " << atan(real_angle) << "\n";
 	cout << "조향각 오차 : " << atan(theory_angle) - atan(real_angle) << "\n";			//라디안 단위임 '도'단위로 바꿀려면 (* 180 / pi)
 	cout << "접점의 좌표 : " << tx << " " << ty << "\n";
 	cout << "횡방향 오차 : " << distance << "\n";
-    }
+}
 
 	return 0;
 }

@@ -31,6 +31,8 @@
 #include <sensor_msgs/LaserScan.h>
 #include <geometry_msgs/Twist.h>
 #include <nav_msgs/Odometry.h>
+#include <std_msgs/Float32MultiArray.h>
+#include <geometry_msgs/Pose2D.h>
 
 #define DEG2RAD (M_PI / 180.0)
 #define RAD2DEG (180.0 / M_PI)
@@ -38,14 +40,6 @@
 #define CENTER 0
 #define LEFT   1
 #define RIGHT  2
-
-#define LINEAR_VELOCITY  0.3
-#define ANGULAR_VELOCITY 1.5
-
-#define GET_TB3_DIRECTION 0
-#define TB3_DRIVE_FORWARD 1
-#define TB3_RIGHT_TURN    2
-#define TB3_LEFT_TURN     3
 
 class Turtlebot3Drive
 {
@@ -69,18 +63,14 @@ class Turtlebot3Drive
   ros::Publisher cmd_vel_pub_;
 
   // ROS Topic Subscribers
-  ros::Subscriber laser_scan_sub_;
-  ros::Subscriber odom_sub_;
+//  ros::Subscriber odom_sub_;
+  ros::Subscriber real_odom_sub_;
+  ros::Subscriber pose_sub_;
 //  ros::Subscriber pose_sub_;
 
   // Variables
+  // int cnt;
   char q;
-  double escape_range_;
-  double check_forward_dist_;
-  double check_side_dist_;
-
-  double scan_data_[3] = {0.0, 0.0, 0.0};
-
   double tb3_pose_;
   double prev_tb3_pose_;
   double err_angle;
@@ -89,7 +79,7 @@ class Turtlebot3Drive
 	const double pi = 3.141592;		//파이값
 	double x1, x2, y1, y2, x3, y3;	//중점을 찾기위한 좌표
 	double m1, m2;					//중점 좌표 저장
-	double x, y;					//차량의 좌표 저장
+	double real_x, real_y;					//차량의 좌표 저장
 	double tx, ty;					//접점의 좌표 저장
 	double angle1, angle2, angle3;	//전, 지금의 기울기/ 지금, 후의 기울기 /경로 예상 기울기
 	double real_angle;				//차량의 조향각
@@ -98,8 +88,8 @@ class Turtlebot3Drive
 
   // Function prototypes
   void updatecommandVelocity(double linear, double angular);
-  void laserScanMsgCallBack(const sensor_msgs::LaserScan::ConstPtr &msg);
-  void odomMsgCallBack(const nav_msgs::Odometry::ConstPtr &msg);
-//  void Stop(int N);
+//  void odomMsgCallBack(const nav_msgs::Odometry::ConstPtr &msg);
+  void realodomMsgCallBack(const std_msgs::Float32MultiArray::ConstPtr &msg);
+  void poseMsgCallBack(const geometry_msgs::Pose2D::ConstPtr &msg);
 };
 #endif // TURTLEBOT3_DRIVE_H_
