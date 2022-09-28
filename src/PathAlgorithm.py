@@ -38,41 +38,21 @@ def pose_callback(pose):
     global station
     global map_cell_scale
     dis = 100000
-    present = 0
-    count = 0
+    present = (-1, -1)
 
     path_pub = rospy.Publisher('/path_coord', Float32MultiArray, queue_size=10)
     path_c = Float32MultiArray()
 
     for i in path:
-        if dis > pow((i[1] * 0.2 + 0.1 - pose.x), 2) + pow((i[0] * 0.2 + 0.1 - pose.y), 2):
-            present = count
-            dis = pow((i[1] * 0.2 + 0.1 - pose.x), 2) + pow((i[0] * 0.2 + 0.1 - pose.y), 2)
-            count += 1
-    print(path)
-    print(present)
-    # path_tmp = [-0.1, -0.1, path[present[1]], path[present[0]], path[present[1] + 1], path[present[0] + 1]]
-    # print(path_tmp)
-    # print(path_tmp[0] * 0.2 + 0.1)
-    # t = [-0.1, -0.1, path[present[1]] * 0.2 + 0.1, path[present[0]] * 0.2 + 0.1, path[present[1] + 1] * 0.2 + 0.1, path[present[0] + 1] * 0.2 + 0.1]
-    # print(t)
-
+        if d > pow((i[0] * 0.2 + 0.1 - pose.x), 2) + pow((i[1] * 0.2 + 0.1 - pose.y), 2):
+            present = (i[0], i[1])
+            dis = pow((i[0] * 0.2 + 0.1 - pose.x), 2) + pow((i[1] * 0.2 + 0.1 - pose.y), 2)
+    
     path_c.data.clear()
-    if (present == 0):     #################3수정
-        past = [0, 0]
-        if (path[0][0] == path[1][0]):
-            past[0] = path[0][0]
-            past[1] = path[0][1] - (path[1][1] - path[0][1])
-        elif (path[0][1] == path[1][1]):
-            past[0] = path[0][0] - (path[1][0] - path[0][0])
-            past[1] = path[0][1]
-        else:
-            past[0] = path[0][0] - (path[1][0] - path[0][0])
-            past[1] = path[0][1] - (path[1][1] - path[0][1])
-        
-        path_c.data = [past[1] * 0.2 + 0.1, past[0] * 0.2 + 0.1, path[present][1] * 0.2 + 0.1, path[present][0] * 0.2 + 0.1, path[present + 1][1] * 0.2 + 0.1, path[present + 1][0] * 0.2 + 0.1]    
+    if (present[0] == 0 and present[1] == 0):
+        path_c.data = [-0.1, -0.1, path[present[1]] * 0.2 + 0.1, path[present[0]] * 0.2 + 0.1, path[present[1] + 1] * 0.2 + 0.1, path[present[0] + 1] * 0.2 + 0.1]    
     else:
-        path_c.data = [path[present - 1][1] * 0.2 + 0.1, path[present - 1][0] * 0.2 + 0.1, path[present][1] * 0.2 + 0.1, path[present][0] * 0.2 + 0.1, path[present + 1][1] * 0.2 + 0.1, path[present + 1][0] * 0.2 + 0.1]
+        path_c.data = [path[present[1] - 1] * 0.2 + 0.1, path[present[0] - 1] * 0.2 + 0.1, path[present[1]] * 0.2 + 0.1, path[present[0]] * 0.2 + 0.1, path[present[1] + 1] * 0.2 + 0.1, path[present[0] + 1] * 0.2 + 0.1]
 
     path_pub.publish(path_c)
 
@@ -228,9 +208,59 @@ def aStar(maze, start, end):
                     
             openList.append(child)
 
+def target(overlap_prevenstion, read_map, start):
+    global station
+
+    for serch in d3:
+        nx = start[0] + serch[0]
+        ny = start[1] + serch[1]
+
+        # 미로 read_map index 범위 안에 있어야함
+        within_range_criteria = [
+            nx > (len(read_map) - 1),
+            nx < 0,
+            ny > (len(read_map[len(read_map) - 1]) - 1),
+            ny < 0,
+        ]
+
+        if any(within_range_criteria):  # 하나라도 true면 범위 밖임
+            continue
+        
+        if overlap_prevenstion[nx][ny] == 1:    # 이미 경유했거나 경유한 지점 근처면 Pass
+            continue
+
+        if read_map[nx][ny] == '4':
+            min = 10000
+            min_x = -1
+            min_y = -1
+            for near in d1:
+                nnx = nx + near[0]
+                nny = ny + near[1]
+
+                if read_map[nnx][nny] == '0':
+                    if min > abs(nnx - start[0]) + abs(nny - start[1]):
+                        min = abs(nnx - start[0]) + abs(nny - start[1])
+                        min_x = nnx
+                        min_y = nny
+                    
+            station = (min_x, min_y)
+            overlap_prevenstion[min_x][min_y]
+            for near_blocking in d1:
+                nbx = min_x + near_blocking[0]
+                nby = min_y + near_blocking[1]
+                overlap_prevenstion[nbx][nby] = 1
+            for near_blocking in d2:
+                nbx = min_x + near_blocking[0]
+                nby = min_y + near_blocking[1]
+                overlap_prevenstion[nbx][nby] = 1
+
+            if min_x != -1:
+                return 1
+
+    return 0
+
 def main():
     global path
-    global station
     rospy.init_node('Astar')
     rospy.Subscriber('/odom2', Pose2D, pose_callback)
 
@@ -255,33 +285,17 @@ def main():
             elif read_map[r][c] == '3':
                 end = (r, c)
             elif read_map[r][c] == '4':
-                station = (r, c)
                 maze[r][c] = 1  
             elif read_map[r][c] == '5':
                 maze[r][c] = 1   
 
-    if (station[0] != -1):        # 바운더리 내에 선호하는 대상이 있다면
-        min = 10000
-        min_x = -1
-        min_y = -1
-        for near in d1:
-            nnx = station[0] + near[0]
-            nny = station[1] + near[1]
-
-            if read_map[nnx][nny] == '0':
-                if min > abs(nnx - start[0]) + abs(nny - start[1]):
-                    min = abs(nnx - start[0]) + abs(nny - start[1])
-                    min_x = nnx
-                    min_y = nny
-                
-        station = (min_x, min_y)
-
-        path_1 = aStar(maze, start, station)
-        start = station
-        path_2 = aStar(maze, start, end)
-        path = path_1 + path_2[1:] + [(100, 100)]
-    else:    
-        path = aStar(maze, start, end) + [(100, 100)]
+    #if (target(overlap_prevenstion, read_map, start) == 1):        # 바운더리 내에 선호하는 대상이 있다면
+    #    path_1 = aStar(maze, start, station)
+    #    start = station
+    #    path_2 = aStar(maze, start, end)
+    #    path = path_1 + path_2
+    #else:    
+    path = aStar(maze, start, end)
 
     for i in path:
         center_x = i[1] * block_scale + block_scale // 2   # center_x를 c로 구하는 이유: x좌표는 픽셀 size이기 때문

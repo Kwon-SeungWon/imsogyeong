@@ -1,21 +1,3 @@
-/*******************************************************************************
-* Copyright 2016 ROBOTIS CO., LTD.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*     http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*******************************************************************************/
-
-/* Authors: Kwon SeungWon */
-
 #include "imsogyeong_action/stanley_drive.h"
 
 Turtlebot3Drive::Turtlebot3Drive()
@@ -24,7 +6,6 @@ Turtlebot3Drive::Turtlebot3Drive()
   //Init gazebo ros turtlebot3 node
   ROS_INFO("TurtleBot3 Simulation Node Init");
   auto ret = init();
-  //ROS_ASSERT(ret);
 }
 
 Turtlebot3Drive::~Turtlebot3Drive()
@@ -42,33 +23,19 @@ bool Turtlebot3Drive::init()
   std::string cmd_vel_topic_name = nh_.param<std::string>("cmd_vel_topic_name", "");
 
   // initialize variables
-
-  tb3_pose_ = 0.0;
-  prev_tb3_pose_ = 0.0;
   err_dist = 0.0;
   err_angle = 0.0;
-
 
   // initialize publishers
   cmd_vel_pub_   = nh_.advertise<geometry_msgs::Twist>(cmd_vel_topic_name, 10);
 
   // initialize subscribers
-//  odom_sub_ = nh_.subscribe("odom", 10, &Turtlebot3Drive::odomMsgCallBack, this);
   real_odom_sub_ = nh_.subscribe("/path_coord", 10, &Turtlebot3Drive::realodomMsgCallBack, this);
   pose_sub_ = nh_.subscribe("/odom2", 10, &Turtlebot3Drive::poseMsgCallBack, this);
 
   return true;
 }
-/*
-void Turtlebot3Drive::odomMsgCallBack(const nav_msgs::Odometry::ConstPtr &msg) // 반시계기준 0 ~ 180도 = 0 ~ +3.14 , 180도 ~ 360도 = -3.14 ~ 0
-{
-  double siny = 2.0 * (msg->pose.pose.orientation.w * msg->pose.pose.orientation.z + msg->pose.pose.orientation.x * msg->pose.pose.orientation.y);
-  double cosy = 1.0 - 2.0 * (msg->pose.pose.orientation.y * msg->pose.pose.orientation.y + msg->pose.pose.orientation.z * msg->pose.pose.orientation.z);  
 
-  tb3_pose_ = atan2(siny, cosy);
-  std::cout<< tb3_pose_ <<"\n";
-}
-*/
 void Turtlebot3Drive::realodomMsgCallBack(const std_msgs::Float32MultiArray::ConstPtr &msg)
 {
   if(msg->data.size() > 5)
@@ -88,9 +55,6 @@ void Turtlebot3Drive::poseMsgCallBack(const geometry_msgs::Pose2D::ConstPtr &msg
 {
 	real_x = msg->x, real_y = msg->y;
 	real_angle = msg->theta;
-	
-	std::cout << msg->x << " " <<  msg->y << " " << msg->theta << "\n";
-	std::cout << atan2(1,0) << " " << atan2(1,1) << " " << atan2(-1,1) << " " << atan2(0,1) << "\n";
 }
 
 void Turtlebot3Drive::updatecommandVelocity(double linear, double angular)
@@ -103,113 +67,110 @@ void Turtlebot3Drive::updatecommandVelocity(double linear, double angular)
   cmd_vel_pub_.publish(cmd_vel);
 }
 
-bool Turtlebot3Drive::StanleyMethod()
+bool Turtlebot3Drive::ErrorCalculate()
 {
-	/*
-	x1 = round(x1 * 100) / 100;
-	y1 = round(y1 * 100) / 100;
-	x2 = round(x2 * 100) / 100;
-	y2 = round(y2 * 100) / 100;
-	x3 = round(x3 * 100) / 100;
-	y3 = round(y3 * 100) / 100;
-	*/
-	m1 = double(x1 + x3) / 2.0;
-	m2 = double(y1 + y3) / 2.0;
+	///////////////////////////////받아온 과거, 현재, 미래 좌표를 통해 각도를 계산한다.
+	angle1 = (y2 - y1) / (x2 - x1);		//과거와 현재 좌표에 대한 각도
+	angle2 = (y3 - y2) / (x3 - x2);		//현재와 미래 좌표에 대한 각도
+	angle3 = (y3 - y1) / (x3 - x1);		//과거와 미래 좌표에 대한 각도
 
-	angle1 = (y2 - y1) / (x2 - x1);
-	angle2 = (y3 - y2) / (x3 - x2);
-	angle3 = (y3 - y1) / (x3 - x1);
-
-	if ((((angle1 - angle2) < 0.01) && ((angle1 - angle2) > -0.01)) || ((angle2 > 1000) && (angle1 > 1000))) {
-		if ((angle3 > -0.01) && (angle3 < 0.01)) {					//////////////////////////////////////////////가로 직선
+	if ((((angle1 - angle2) < 0.01) && ((angle1 - angle2) > -0.01)) || ((angle2 > 1000) && (angle1 > 1000))) {		//직선 경로인 경우 
+		if ((angle3 > -0.01) && (angle3 < 0.01)) {					//x축과 평행한 경로
 			tx = x2;
 			ty = y2;
 			distance = y2 - real_y;
 			theory_angle = 0;
 			err_angle = atan2(0, 1) - real_angle;
-        	err_dist = distance;
+			err_dist = distance;
 		}
-		else if ((angle3 > 0.8) && (angle3 < 1.2)) {				//////////////////////////////////////////////세로 직선
+		else if ((angle3 > 0.8) && (angle3 < 1.2)) {				//x, y 기준 둘다 +로 뻗어나가는 대각선 경로(y = x)
 			tx = (real_x + real_y - (y2 - x2)) / 2.0;
 			ty = tx + (y2 - x2);
 			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
 			theory_angle = 1;
 			err_angle = atan2(1, 1) - real_angle;
-        	err_dist = distance;
+			err_dist = distance;
 		}
-		else if ((angle3 < -0.8) && (angle3 > -1.2)) {			//////////////////////////////////////////////대각 직선(+)
+		else if ((angle3 < -0.8) && (angle3 > -1.2)) {				//x, y 기준 x만 +로 뻗어나가는 대각선 경로(y = -x)
 			tx = (real_x - real_y + (y2 + x2)) / 2.0;
 			ty = -tx + (y2 + x2);
 			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
 			theory_angle = -1;
 			err_angle = atan2(-1, 1) - real_angle;
-        	err_dist = distance;
+			err_dist = distance;
 		}
-		else if (angle3 == INFINITY) {		//////////////////////////////////////////////대각 직선(-)
+		else if (angle3 == INFINITY) {								//y축과 평행한 경로
 			tx = x2;
 			ty = y2;
 			distance = x2 - real_x;
 			theory_angle = INFINITY;
 			err_angle = atan2(1, 0) - real_angle;
-        	err_dist = distance;
+			err_dist = distance;
 		}
 		else {
 			std::cout << "일치하는 경로가 없습니다." << "\n";
 		}
-        
-		
-        std::cout << "\n" << "이론상의 조향각 : " << atan(theory_angle) << " " << "실제 조향각 : " << real_angle << "\n";
-		std::cout << "조향각 오차 : " << err_angle << "\n";			//라디안 단위임 '도'단위로 바꿀려면 (* 180 / pi)
+
+		//로봇의 좌표와 방향을 직접적으로 받음으로써 이론적으로 있어야하는 위치와 보고있는 방향을 비교해서 오차를 구한다.
+		std::cout << "\n" << "이론상의 조향각 : " << atan(theory_angle) << " " << "실제 조향각 : " << real_angle << "\n";
+		std::cout << "조향각 오차 : " << err_angle << "\n";				
 		std::cout << "접점의 좌표 : " << tx << " " << ty << "\n";
 		std::cout << "횡방향 오차 : " << distance << "\n";
 	}
 
-	else if (((angle3 > 0.9) && (angle3 < 1.1)) || ((angle3 < -0.9) && (angle3 > -1.1))) {
-		theory_angle = -1 / ((real_y - m2) / (real_x - m1));
+	else if (((angle3 > 0.9) && (angle3 < 1.1)) || ((angle3 < -0.9) && (angle3 > -1.1))) {			//좌표가 ㄱ형태로 주어진 곡선 경로인 경우
 
-		if (((angle3 > 0.9) && (angle3 < 1.1)) && (y3 > y2))//////////////////////////////////////////////1번(+ -)
+		m1 = (x1 + x3) / 2.0;		//곡선경로를 만들기 위한 원의 방정식의 중점(x)
+		m2 = (y1 + y3) / 2.0;		//곡선경로를 만들기 위한 원의 방정식의 중점(y)
+
+		std::cout << "중점 : " << m1 << " " << m2 << "\n";
+		std::cout << "곡선 경로" << "\n\n";
+
+		theory_angle = -1 / ((real_y - m2) / (real_x - m1));		//차량의 좌표와 원의 중점을 이용하여 움직여야하는 곡선 경로에서의 조향각을 구한다.
+
+		if (((angle3 > 0.9) && (angle3 < 1.1)) && (y3 > y2))		//////////////////////////////////////////////1번(+ -)
 		{
-			tx = sqrt(pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-			ty = -sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
+			tx = sqrt(pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;							//생성되는 원의 방정식의 반지름은 지정한 구역에서 10cm, 즉 0.1m로 고정이다.
+			ty = -sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;			//위에서 구한 tx와 반지름를 이용하여 원의 방정식에 대입해 ty를 구한다.
 			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
 		}
-		else if (((angle3 > 0.9) && (angle3 < 1.1)) && (x3 > x2))/////////////////////////////////////////2번(- +)
-		{
-			tx = -sqrt(pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-			ty = sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
-			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
-		}
-		else if (((angle3 < -0.9) && (angle3 > -1.1)) && (x3 < x2))/////////////////////////////////////////3번(+ +)
-		{
-			tx = sqrt(pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-			ty = sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
-			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
-		}
-		else if (((angle3 < -0.9) && (angle3 > -1.1)) && (y3 > y2))/////////////////////////////////////////4번(- -)
-		{
-			tx = -sqrt(pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-			ty = -sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
-			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
-		}
-		else if (((angle3 > 0.9) && (angle3 < 1.1)) && (y3 < y2))/////////////////////////////////////////5번(- +)
+		else if (((angle3 > 0.9) && (angle3 < 1.1)) && (x3 > x2))	/////////////////////////////////////////2번(- +)
 		{
 			tx = -sqrt(pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
 			ty = sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
 			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
 		}
-		else if (((angle3 > 0.9) && (angle3 < 1.1)) && (x3 < x2))/////////////////////////////////////////6번(+ -)
+		else if (((angle3 < -0.9) && (angle3 > -1.1)) && (x3 < x2))	/////////////////////////////////////////3번(+ +)
 		{
 			tx = sqrt(pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-			ty = -sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
+			ty = sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
 			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
 		}
-		else if (((angle3 < -0.9) && (angle3 > -1.1)) && (x3 > x2))/////////////////////////////////////////7번(- -)
+		else if (((angle3 < -0.9) && (angle3 > -1.1)) && (y3 > y2))	/////////////////////////////////////////4번(- -)
 		{
 			tx = -sqrt(pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
 			ty = -sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
 			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
 		}
-		else if (((angle3 < -0.9) && (angle3 > -1.1)) && (y3 < y2))/////////////////////////////////////////8번(+ +)
+		else if (((angle3 > 0.9) && (angle3 < 1.1)) && (y3 < y2))	/////////////////////////////////////////5번(- +)
+		{
+			tx = -sqrt(pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
+			ty = sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
+			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
+		}
+		else if (((angle3 > 0.9) && (angle3 < 1.1)) && (x3 < x2))	/////////////////////////////////////////6번(+ -)
+		{
+			tx = sqrt(pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
+			ty = -sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
+			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
+		}
+		else if (((angle3 < -0.9) && (angle3 > -1.1)) && (x3 > x2))	/////////////////////////////////////////7번(- -)
+		{
+			tx = -sqrt(pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
+			ty = -sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
+			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
+		}
+		else if (((angle3 < -0.9) && (angle3 > -1.1)) && (y3 < y2))	/////////////////////////////////////////8번(+ +)
 		{
 			tx = sqrt(pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
 			ty = sqrt(pow(0.1, 2) - (pow(0.1, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
@@ -219,129 +180,111 @@ bool Turtlebot3Drive::StanleyMethod()
 		{
 			std::cout << "일치하는 경로가 없습니다." << "\n";
 		}
-
-        err_angle = atan(theory_angle) - real_angle;
-        err_dist = distance;
 		
-        std::cout << "\n" << "이론상의 조향각 : " << atan(theory_angle) << " " << "실제 조향각 : " << real_angle << "\n";
-		std::cout << "조향각 오차 : " << err_angle << "\n";			//라디안 단위임 '도'단위로 바꿀려면 (* 180 / pi)
+		err_angle = atan(theory_angle) - real_angle;
+		err_dist = distance;
+
+		//로봇의 좌표와 방향을 직접적으로 받음으로써 이론적으로 있어야하는 위치와 보고있는 방향을 비교해서 오차를 구한다.
+		std::cout << "\n" << "이론상의 조향각 : " << atan(theory_angle) << " " << "실제 조향각 : " << real_angle << "\n";
+		std::cout << "조향각 오차 : " << err_angle << "\n";		
 		std::cout << "접점의 좌표 : " << tx << " " << ty << "\n";
 		std::cout << "횡방향 오차 : " << distance << "\n";
 	}
 
-	else {
-	if (y1 == y2) {
-		m1 = x1;
-		m2 = -(x3 - x2) / (y3 - y2) * (x1 - x3) + y3;
-	}
-	else if (y2 == y3) {
-		m1 = x3;
-		m2 = -(x2 - x1) / (y2 - y1) * (x3 - x1) + y1;
-	}
-	else if (x1 == x2) {
-		m1 = -(y3 - y2) / (x3 - x2) * (y1 - y3) + x3;
-		m2 = y1;
-	}
-	else if (x2 == x3) {
-		m1 = -(y2 - y1) / (x2 - x1) * (y3 - y1) + x1;
-		m2 = y3;
-	}
-	std::cout << "중점 : " << m1 << " " << m2 << "\n";
-	std::cout << "곡선 경로" << "\n\n";
+	else {		//좌표가 ㄱ형태가 아닌 각도가 좀 더 벌어진 보다 완만한 곡선의 경우
+		if (y1 == y2) {			//과거, 현재 좌표의 직선이 x축에 평행하고 현재, 미래 좌표의 직선이 y = x 또는 y = -x 형태일 때
+			m1 = x1;
+			m2 = -(x3 - x2) / (y3 - y2) * (x1 - x3) + y3;
+		}
+		else if (y2 == y3) {	//현재, 미래 좌표의 직선이 x축에 평행하고 과거, 현재 좌표의 직선이 y = x 또는 y = -x 형태일 때
+			m1 = x3;
+			m2 = -(x2 - x1) / (y2 - y1) * (x3 - x1) + y1;
+		}
+		else if (x1 == x2) {	//과거, 현재 좌표의 직선이 y축에 평행하고 현재, 미래 좌표의 직선이 y = x 또는 y = -x 형태일 때
+			m1 = -(y3 - y2) / (x3 - x2) * (y1 - y3) + x3;
+			m2 = y1;
+		}
+		else if (x2 == x3) {	//현재, 미래 좌표의 직선이 x축에 평행하고 과거, 현재 좌표의 직선이 y = x 또는 y = -x 형태일 때
+			m1 = -(y2 - y1) / (x2 - x1) * (y3 - y1) + x1;
+			m2 = y3;
+		}
+		std::cout << "중점 : " << m1 << " " << m2 << "\n";
+		std::cout << "곡선 경로" << "\n\n";
 
-	theory_angle = -1 / ((real_y - m2) / (real_x - m1));
+		theory_angle = -1 / ((real_y - m2) / (real_x - m1));		//차량의 좌표와 원의 중점을 이용하여 움직여야하는 곡선 경로에서의 조향각을 구한다.
 
-	if (((angle3 > 0.4) && (angle3 < 0.6)) && (((y3 > y2) && (x1 < x2)) || ((x2 > x3) && (y1 > y2))))//////////////////////////////////////////////1번(+ -)
-	{
-		tx = sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-		ty = -sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
-		distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
-    	//err_angle = atan(theory_angle) - real_angle;
+		if (((angle3 > 0.4) && (angle3 < 0.6)) && (((y3 > y2) && (x1 < x2)) || ((x2 > x3) && (y1 > y2))))			/////////////////////////////////////////1번(+ -)
+		{
+			tx = sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;								//생성되는 원의 방정식의 반지름은 지정한 구역에서 60cm, 즉 0.6m로 고정이다.
+			ty = -sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;				//위에서 구한 tx와 반지름를 이용하여 원의 방정식에 대입해 ty를 구한다.
+			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
+		}
+		else if (((angle3 > 1.9) && (angle3 < 2.1)) && (((x3 > x2) && (y1 < y2)) || ((y2 > y3) && (x1 > x2))))		/////////////////////////////////////////2번(- +)
+		{
+			tx = -sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
+			ty = sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
+			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
+		}
+		else if (((angle3 < -1.9) && (angle3 > -2.1)) && (((x3 < x2) && (y1 < y2)) || ((y2 > y3) && (x1 < x2))))	/////////////////////////////////////////3번(+ +)
+		{
+			tx = sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
+			ty = sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
+			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
+		}
+		else if (((angle3 < -0.4) && (angle3 > -0.6)) && (((y3 > y2) && (x1 > x2)) || ((x2 < x3) && (y1 > y2))))	/////////////////////////////////////////4번(- -)
+		{
+			tx = -sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
+			ty = -sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
+			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
+		}
+		else if (((angle3 > 0.4) && (angle3 < 0.6)) && (((y3 < y2) && (x1 > x2)) || ((x2 < x3) && (y1 < y2))))		/////////////////////////////////////////5번(- +)
+		{
+			tx = -sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
+			ty = sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
+			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
+		}
+		else if (((angle3 > 1.9) && (angle3 < 2.1)) && (((x3 < x2) && (y1 > y2)) || ((y2 < y3) && (x1 < x2))))		/////////////////////////////////////////6번(+ -)
+		{
+			tx = sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
+			ty = -sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
+			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
+		}
+		else if (((angle3 < -1.9) && (angle3 > -2.1)) && (((x3 > x2) && (y1 > y2)) || ((y2 < y3) && (x1 > x2))))	/////////////////////////////////////////7번(- -)
+		{
+			tx = -sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
+			ty = -sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
+			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
+		}
+		else if (((angle3 < -0.4) && (angle3 > -0.6)) && (((y3 < y2) && (x1 < x2)) || ((x2 > x3) && (y1 < y2))))	/////////////////////////////////////////8번(+ +)
+		{
+			tx = sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
+			ty = sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
+			distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
+		}
+		else
+		{
+			std::cout << "일치하는 경로가 없습니다." << "\n";
+		}
+
+		err_angle = atan(theory_angle) - real_angle;
+		err_dist = distance;
+
+		//로봇의 좌표와 방향을 직접적으로 받음으로써 이론적으로 있어야하는 위치와 보고있는 방향을 비교해서 오차를 구한다.
+		std::cout << "\n" << "이론상의 조향각 : " << atan(theory_angle) << " " << "실제 조향각 : " << real_angle << "\n";
+		std::cout << "조향각 오차 : " << err_angle << "\n";		
+		std::cout << "접점의 좌표 : " << tx << " " << ty << "\n";
+		std::cout << "횡방향 오차 : " << distance << "\n";
 	}
-	else if (((angle3 > 1.9) && (angle3 < 2.1)) && (((x3 > x2) && (y1 < y2)) || ((y2 > y3) && (x1 > x2))))/////////////////////////////////////////2번(- +)
-	{
-		tx = -sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-		ty = sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
-		distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
-    	//err_angle = atan2((-1)*(real_x - m1) , (real_y - m2)) - real_angle;
-	}
-	else if (((angle3 < -1.9) && (angle3 > -2.1)) && (((x3 < x2) && (y1 < y2)) || ((y2 > y3) && (x1 < x2))))/////////////////////////////////////////3번(+ +)
-	{
-		tx = sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-		ty = sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
-		distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
-    	//err_angle = atan2((-1)*(real_x - m1) , (real_y - m2)) - real_angle;
-	}
-	else if (((angle3 < -0.4) && (angle3 > -0.6)) && (((y3 > y2) && (x1 > x2)) || ((x2 < x3) && (y1 > y2))))/////////////////////////////////////////4번(- -)
-	{
-		tx = -sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-		ty = -sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
-		distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
-    	//err_angle = atan2((-1)*(real_x - m1) , (real_y - m2)) - real_angle;
-	}
-	else if (((angle3 > 0.4) && (angle3 < 0.6)) && (((y3 < y2) && (x1 > x2)) || ((x2 < x3) && (y1 < y2))))/////////////////////////////////////////5번(- +)
-	{
-		tx = -sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-		ty = sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
-		distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
-    	//err_angle = atan2((-1)*(real_x - m1) , (real_y - m2)) - real_angle;
-	}
-	else if (((angle3 > 1.9) && (angle3 < 2.1)) && (((x3 < x2) && (y1 > y2)) || ((y2 < y3) && (x1 < x2))))/////////////////////////////////////////6번(+ -)
-	{
-		tx = sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-		ty = -sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
-		distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
-    	//err_angle = atan2((-1)*(real_y - m2) , (real_x - m1)) - real_angle;
-	}
-	else if (((angle3 < -1.9) && (angle3 > -2.1)) && (((x3 > x2) && (y1 > y2)) || ((y2 < y3) && (x1 > x2))))/////////////////////////////////////////7번(- -)
-	{
-		tx = -sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-		ty = -sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
-		distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
-    	//err_angle = atan2((-1)*(real_x - m1) , (real_y - m2)) - real_angle;
-	}
-	else if (((angle3 < -0.4) && (angle3 > -0.6)) && (((y3 < y2) && (x1 < x2)) || ((x2 > x3) && (y1 < y2))))/////////////////////////////////////////8번(+ +)
-	{
-		tx = sqrt(pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1)) + m1;
-		ty = sqrt(pow(0.6, 2) - (pow(0.6, 2) / (pow((real_y - m2) / (real_x - m1), 2) + 1))) + m2;
-		distance = sqrt(pow(real_x - tx, 2) + pow(real_y - ty, 2));
-    	//err_angle = atan2((-1)*(real_x - m1) , (real_y - m2)) - real_angle;
-	}
-	else
-	{
-		std::cout << "일치하는 경로가 없습니다." << "\n";
-	}
-    err_angle = atan(theory_angle) - real_angle;
-    //err_angle = atan2((-1)*(real_x - m1) , (real_y - m2)) - real_angle;
-    err_dist = distance;
-	
-  std::cout << "\n" << "이론상의 조향각 : " << atan(theory_angle) << " " << "실제 조향각 : " << real_angle << "\n";
-	std::cout << "조향각 오차 : " << err_angle << "\n";			//라디안 단위임 '도'단위로 바꿀려면 (* 180 / pi)
-	std::cout << "접점의 좌표 : " << tx << " " << ty << "\n";
-	std::cout << "횡방향 오차 : " << distance << "\n";
-  }
 
 	return true;
 }
+
 /*******************************************************************************
 * Control Loop function
 *******************************************************************************/
 
 bool Turtlebot3Drive::controlLoop()
 {
- // static uint8_t turtlebot3_state_num = 0;
- // if((err_dist > 0.0 && err_dist < 0.02) && (err_angle > 0.0 && err_angle < 0.02)) updatecommandVelocity(0.3, 0.0); 	
-  /*
-  vector <double> vec(2);
-  vec = [cos( + pi/2), sin(real_angle + pi/2)];
-  cte1 = ([dx,dy] * vec());
-  cte2 = sqrt(pow(dx,2)+pow(dy,2));
-  if real_y < y2{
-	cte2 *= -1;
-  }
-  	
-  
-  */
   if(err_angle > 0.7 || err_angle < -0.7 )
   {
 	updatecommandVelocity(0.08, -(0.4*err_angle));
@@ -356,8 +299,6 @@ bool Turtlebot3Drive::controlLoop()
 bool Turtlebot3Drive::Stop()
 {
   int system (const char * string);
-  //int quit1 = system("rosnode kill turtlebot3_drive");
-  //int quit2 = system("reset");
   updatecommandVelocity(0.0, 0.0);
   ros::shutdown();
   return 0;
@@ -378,16 +319,11 @@ int main(int argc, char* argv[])
 	cnt = cnt + 1;
 	if(cnt > 50){
 		bool check = false;
-    	check = turtlebot3_drive.StanleyMethod();
+    	check = turtlebot3_drive.ErrorCalculate();
     	check = turtlebot3_drive.controlLoop();
 	}
-
-	// if (x3 > 10 && y3 > 10) {
-    //    turtlebot3_drive.Stop();
-    // }
 	ros::spinOnce();
     loop_rate.sleep();
-	
   }
 
   return 0;

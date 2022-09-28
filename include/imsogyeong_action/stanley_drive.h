@@ -37,10 +37,6 @@
 #define DEG2RAD (M_PI / 180.0)
 #define RAD2DEG (180.0 / M_PI)
 
-#define CENTER 0
-#define LEFT   1
-#define RIGHT  2
-
 class Turtlebot3Drive
 {
  public:
@@ -48,31 +44,21 @@ class Turtlebot3Drive
   ~Turtlebot3Drive();
   bool init();
   bool controlLoop();
-  bool StanleyMethod();
+  bool ErrorCalculate();
   bool Stop();
  private:
   // ROS NodeHandle
   ros::NodeHandle nh_;
   ros::NodeHandle nh_priv_;
 
-  // ROS Parameters
-
-  // ROS Time
-
   // ROS Topic Publishers
   ros::Publisher cmd_vel_pub_;
 
   // ROS Topic Subscribers
-//  ros::Subscriber odom_sub_;
   ros::Subscriber real_odom_sub_;
   ros::Subscriber pose_sub_;
-//  ros::Subscriber pose_sub_;
 
   // Variables
-  // int cnt;
-  char q;
-  double tb3_pose_;
-  double prev_tb3_pose_;
   double err_angle;
   double err_dist;
 
@@ -88,7 +74,7 @@ class Turtlebot3Drive
 
   // Function prototypes
   void updatecommandVelocity(double linear, double angular);
-//  void odomMsgCallBack(const nav_msgs::Odometry::ConstPtr &msg);
+
   void realodomMsgCallBack(const std_msgs::Float32MultiArray::ConstPtr &msg);
   void poseMsgCallBack(const geometry_msgs::Pose2D::ConstPtr &msg);
 };
